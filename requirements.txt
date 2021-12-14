@@ -1,3 +1,6 @@
-fastapi
+fastapi[all]
 pydantic
 ansible-runner
+ansible
+proxmoxer
+jmespath

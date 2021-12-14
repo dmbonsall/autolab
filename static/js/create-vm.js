@@ -13,7 +13,7 @@ $(function () {
 
         // ===== Place the REST request =====
         $.ajax({
-            url: "http://localhost:8000/api/create-vm",
+            url: "/api/create-vm",
             contentType: "application/json",
             data: JSON.stringify(data),
             dataType: "json",
