@@ -40,7 +40,7 @@ class CreateVmResponse(BaseResponse):
 
 
 class AnsibleConfiguration(BaseSettings):
-    private_data_dir: Path = "ansible"
+    create_vm_private_data_dir: Path = "ansible/pve-one-touch"
     create_vm_playbook: str = "create-vm.yml"
     ip_print_task_name: str = "Print the IPv4 addresses on all interfaces"
 

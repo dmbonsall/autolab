@@ -42,7 +42,7 @@ class CreateVMExecutor(AnsibleExecutor):
         """Executes the ansible playbook."""
         # ===== Run the ansible playbook asyncronously and wait for the thread to complete =====
         extravars = {"vm_name": request.vm_name, "template_name": request.vm_template.value}
-        thread, runner = ansible_runner.run_async(private_data_dir=self.config.private_data_dir,
+        thread, runner = ansible_runner.run_async(private_data_dir=self.config.create_vm_private_data_dir,
                                                   playbook=self.config.create_vm_playbook,
                                                   extravars=extravars,
                                                   quiet=True)
