@@ -1,3 +1,4 @@
+#!/bin/sh
 # ===== Copy the start script =====
 cp ./start.sh /usr/local/bin/autolab-start
 chmod 755 /usr/local/bin/autolab-start
