@@ -15,7 +15,7 @@ app_api = FastAPI()
 async def create_vm(request: CreateVmRequest) -> CreateVmResponse:
     return await create_vm_executor.execute(request)
 
-@app_api.post("/config_backup")
+@app_api.post("/config-backup")
 async def backup_network_configs():
     return await config_backup_executor.execute()
 
