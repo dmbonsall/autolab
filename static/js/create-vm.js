@@ -8,7 +8,7 @@ $(function () {
 
         // ===== Set the status text, then disable the create button =====
         console.log(data)
-        $("#out_form").html("Creating vm...")
+        $("#createVmOut").html("Creating vm...")
         $("#createVmButton").attr("disabled", true)
 
         // ===== Place the REST request =====
@@ -20,13 +20,34 @@ $(function () {
             type: "POST",
             success: function (response) {
                 console.log(response)
-                $("#out_form").html("Success! Ip Addresses:\n" + response.ip_addrs.toString())
+                $("#createVmOut").html("Success! Ip Addresses:\n" + response.ip_addrs.toString())
                 $("#createVmButton").removeAttr("disabled")
             },
             error: function (response) {
                 console.log(response)
-                $("#out_form").html("Failure:\n" + response)
+                $("#createVmOut").html("Failure:\n" + response)
                 $("#createVmButton").removeAttr("disabled")
+            }
+        });
+    });
+    $("#configBackupButton").click(function () {
+        // ===== Set the status text, then disable the backup button =====
+        $("#configBackupOut").html("Backing up configurations.....")
+        $("#configBackupButton").attr("disabled", true)
+
+        // ===== Place the REST request =====
+        $.ajax({
+            url: "/api/config-backup",
+            type: "POST",
+            success: function (response) {
+                console.log(response)
+                $("#configBackupOut").html("Success!")
+                $("#configBackupButton").removeAttr("disabled")
+            },
+            error: function (response) {
+                console.log(response)
+                $("#configBackupOut").html("Failure:\n" + response)
+                $("#configBackupButton").removeAttr("disabled")
             }
         });
     });
