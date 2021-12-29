@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 import asyncio
 from threading import Thread
+from typing import Optional
 
 import ansible_runner
 
-from .data_model import (BaseRequest, BaseResponse, CreateVmRequest, CreateVmResponse,
+from .data_model import (BaseRequest, BaseResponse, ConfigBackupResponse, CreateVmRequest, CreateVmResponse,
                          AnsibleConfiguration, AnsibleRunnerStatus)
 
 
@@ -32,7 +33,7 @@ class AnsibleExecutor(ABC):
         self.config = config
 
     @abstractmethod
-    async def execute(self, request: BaseRequest) -> BaseResponse:
+    async def execute(self, request: Optional[BaseRequest]) -> BaseResponse:
         """Executes the ansible playbook."""
 
 
@@ -66,3 +67,21 @@ class CreateVMExecutor(AnsibleExecutor):
         # ===== Grab the ip addresses and return the response =====
         ip_addrs = ip_print_events[0]["event_data"]["res"]["msg"]
         return CreateVmResponse(status=status, ip_addrs=ip_addrs, request=request)
+
+class ConfigBackupExecutor(AnsibleExecutor):
+    """Executor to run the create-vm playbook to create a virtual machine."""
+    async def execute(self, _ = None) -> ConfigBackupResponse:
+        """Executes the ansible playbook."""
+        # ===== Run the ansible playbook asyncronously and wait for the thread to complete =====
+        thread, runner = ansible_runner.run_async(private_data_dir=self.config.config_backup_private_data_dir,
+                                                  playbook=self.config.config_backup_playbook,
+                                                  quiet=True)
+
+        await await_thread(thread)
+
+        # ===== Assert that the status is successful =====
+        status = AnsibleRunnerStatus(runner.status)
+        if status != AnsibleRunnerStatus.SUCCESSFUL:
+            raise RuntimeError("Ansible run job for config-backup failed")
+
+        return ConfigBackupResponse(status=status)

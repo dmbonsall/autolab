@@ -26,6 +26,7 @@ class BaseRequest(BaseModel):
 
 class BaseResponse(BaseModel):
     """Base class for REST response data."""
+    status: AnsibleRunnerStatus
 
 
 class CreateVmRequest(BaseRequest):
@@ -34,15 +35,21 @@ class CreateVmRequest(BaseRequest):
 
 
 class CreateVmResponse(BaseResponse):
-    status: AnsibleRunnerStatus
     ip_addrs: List[str]
     request: CreateVmRequest
 
+class ConfigBackupRequest(BaseRequest):
+    pass
+
+class ConfigBackupResponse(BaseResponse):
+    pass
 
 class AnsibleConfiguration(BaseSettings):
     create_vm_private_data_dir: Path = "ansible/pve-one-touch"
     create_vm_playbook: str = "create-vm.yml"
     ip_print_task_name: str = "Print the IPv4 addresses on all interfaces"
+    config_backup_private_data_dir: Path = "ansible/config-backup"
+    config_backup_playbook: str = "config-playbook.yml"
 
 
 @lru_cache
