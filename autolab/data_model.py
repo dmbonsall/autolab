@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Column, DateTime, Enum, Integer, String
+from sqlalchemy import Column, DateTime, Enum, Integer, JSON, String
 
 from .database import Base
 
@@ -26,3 +26,4 @@ class AnsibleJob(Base):
     status = Column(Enum(AnsibleRunnerStatus), nullable=True)
     start_time = Column(DateTime)
     end_time = Column(DateTime, nullable=True)
+    result = Column(JSON, nullable=True)

@@ -1,23 +1,18 @@
-from abc import ABC, abstractmethod
 import asyncio
 import datetime
 from threading import Thread
-from typing import Optional
+from typing import Any, Callable, Dict, Optional
 import uuid
 
 import ansible_runner
-from sqlalchemy.orm import Session
+from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
 from . import crud
-from .schema import (BaseRequest, BaseResponse, ConfigBackupResponse, CreateVmRequest, CreateVmResponse,
-                     AnsibleRunnerStatus)
-from .config import AnsibleConfiguration
+from .schema import AnsibleRunnerStatus, StatusHandlerStatus
+from .config import get_logger
 
 
-async def await_thread(thread: Thread):
-    """Block until a thread has terminated, but perform sleep operations with ``asyncio.sleep``."""
-    while thread.is_alive():
-        await asyncio.sleep(1)
+logger = get_logger()
 
 
 def task_result_event_filter(event: dict, task_name: str) -> bool:
@@ -28,82 +23,87 @@ def task_result_event_filter(event: dict, task_name: str) -> bool:
     except KeyError:
         return False
 
+def get_ip_addrs(runner: ansible_runner.Runner):
+    status = AnsibleRunnerStatus(runner.status)
+    if status != AnsibleRunnerStatus.SUCCESSFUL:
+        return
 
-class AnsibleExecutor(ABC):
-    """Base class for executors of ansible playbooks.
+    # ===== Find the ip print task from the events list =====
+    ip_print_events = [e for e in runner.events if task_result_event_filter(e, "Print the IPv4 addresses on all interfaces")]
 
-    Provides an abstraction layer on top of ansible-runner.
-    """
-    def __init__(self, config: AnsibleConfiguration) -> None:
-        self.config = config
+    if not ip_print_events:
+        logger.error("Unable to find ip address of the new VM")
+        return
 
-    def pre_exec(self, db: Session) -> str:
-        start_time = datetime.datetime.now()
-        job_uuid = str(uuid.uuid1())
-        crud.create_ansible_job(db, job_uuid, start_time)
-        return job_uuid
+    if len(ip_print_events) > 1:
+        logger.error("Too many ip print events found")
+        return
 
-    def post_exec(self, db: Session, job_uuid: str, status: AnsibleRunnerStatus):
-        end_time = datetime.datetime.now()
-        crud.update_ansible_job_status(db, job_uuid, status, end_time)
+    # ===== Grab the ip addresses and return the response =====
+    ip_addrs = ip_print_events[0]["event_data"]["res"]["msg"]
+    crud.update_job(runner.config.ident, result=ip_addrs)
 
-    @abstractmethod
-    async def execute(self, db: Session, request: Optional[BaseRequest]) -> BaseResponse:
-        """Executes the ansible playbook."""
+class PlaybookConfig(BaseModel):
+    private_data_dir: str
+    playbook: str
+    quiet: bool = True
+    finished_callback: Optional[Callable[[ansible_runner.Runner], None]] = None
+
+    class Config:
+        allow_mutation = False
 
 
-class CreateVMExecutor(AnsibleExecutor):
-    """Executor to run the create-vm playbook to create a virtual machine."""
-    async def execute(self, db: Session, request: CreateVmRequest) -> CreateVmResponse:
-        """Executes the ansible playbook."""
-        # ===== Run the ansible playbook asyncronously and wait for the thread to complete =====
-        job_uuid = self.pre_exec(db)
-        extravars = {"vm_name": request.vm_name, "template_name": request.vm_template.value}
-        thread, runner = ansible_runner.run_async(private_data_dir=self.config.create_vm_private_data_dir,
-                                                  playbook=self.config.create_vm_playbook,
+class PlaybookExecutor:
+    def __init__(self, config: PlaybookConfig):
+        self._uuid: str = str(uuid.uuid1())
+        self._config: PlaybookConfig = config
+        self._start_time: Optional[datetime.datetime] = None
+        self._end_time: Optional[datetime.datetime] = None
+        self._runner: Optional[ansible_runner.Runner] = None
+        self._runner_thread: Optional[Thread] = None
+
+    config = property(lambda self: self._config)
+    uuid = property(lambda self: self._uuid)
+
+    def start_playbook(self, extravars: Optional[Dict[str, str]] = None):
+        if extravars is None:
+            extravars = {}
+
+        self._start_time = datetime.datetime.now()
+        thread, runner = ansible_runner.run_async(ident=self._uuid,
+                                                  status_handler=self.status_handler,
                                                   extravars=extravars,
-                                                  ident=job_uuid,
-                                                  quiet=True)
+                                                  **self.config.dict())
+        self._runner_thread = thread
+        self._runner = runner
 
-        await await_thread(thread)
-
-        # ===== Assert that the status is successful =====
-        status = AnsibleRunnerStatus(runner.status)
-        self.post_exec(db, job_uuid, status)
-        if status != AnsibleRunnerStatus.SUCCESSFUL:
-            raise RuntimeError("Ansible run job for create-vm failed")
-
-        # ===== Find the ip print task from the events list =====
-        ip_print_events = [e for e in runner.events if task_result_event_filter(e, self.config.ip_print_task_name)]
-
-        if not ip_print_events:
-            raise RuntimeError("Unable to find ip address of the new VM")
-
-        if len(ip_print_events) > 1:
-            raise RuntimeError("Too many ip print events found")
-
-        # ===== Grab the ip addresses and return the response =====
-        ip_addrs = ip_print_events[0]["event_data"]["res"]["msg"]
-        return CreateVmResponse(job_uuid=job_uuid, status=status, ip_addrs=ip_addrs, request=request)
+    async def await_termination(self):
+        """Block until a thread has terminated, but perform sleep operations with ``asyncio.sleep``."""
+        while self._runner_thread.is_alive():
+            await asyncio.sleep(1)
 
 
-class ConfigBackupExecutor(AnsibleExecutor):
-    """Executor to run the create-vm playbook to create a virtual machine."""
-    async def execute(self, db: Session, _ = None) -> ConfigBackupResponse:
-        """Executes the ansible playbook."""
-        # ===== Run the ansible playbook asyncronously and wait for the thread to complete =====
-        job_uuid = self.pre_exec(db)
-        thread, runner = ansible_runner.run_async(private_data_dir=self.config.config_backup_private_data_dir,
-                                                  playbook=self.config.config_backup_playbook,
-                                                  quiet=False)
+    def status_handler(self, status: StatusHandlerStatus, _: Optional[Any] = None):
+        """Callback to handle changes to status."""
+        # NOTE: _ is the runner config, it is not needed since we can access via self.runner.config
+        status = StatusHandlerStatus(**status)
+        if status.status == AnsibleRunnerStatus.STARTING:
+            crud.create_ansible_job(self.uuid, self._start_time)
+            crud.update_job(self.uuid, status=status.status)
+        elif status.status == AnsibleRunnerStatus.RUNNING:
+            crud.update_job(self.uuid, status=status.status)
+        else:
+            # We have reached a terminal state
+            self._end_time = datetime.datetime.now()
+            crud.update_job(self.uuid, status=status.status, end_time=self._end_time)
 
 
-        await await_thread(thread)
+class PlaybookExecutorFactory:
+    def __init__(self):
+        self._config_map = {}
 
-        # ===== Assert that the status is successful =====
-        status = AnsibleRunnerStatus(runner.status)
-        self.post_exec(db, job_uuid, status)
-        if status != AnsibleRunnerStatus.SUCCESSFUL:
-            raise RuntimeError("Ansible run job for config-backup failed")
+    def register(self, key, config: PlaybookConfig):
+        self._config_map[key] = config
 
-        return ConfigBackupResponse(job_uuid=job_uuid, status=status)
+    def build_executor(self, key):
+        return PlaybookExecutor(self._config_map[key])

@@ -1,8 +1,5 @@
 import datetime
-from enum import Enum
-from functools import lru_cache
-from pathlib import Path
-from typing import List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
@@ -14,9 +11,15 @@ class AnsibleJob(BaseModel):
     status: AnsibleRunnerStatus
     start_time: datetime.datetime
     end_time: Optional[datetime.datetime] = None
+    result: Optional[Any] = None
 
     class Config:
         orm_mode = True
+
+class StatusHandlerStatus(BaseModel):
+    """The status structure that is passed back from the ansible_runner.Runner class to status handler."""
+    status: AnsibleRunnerStatus
+    runner_ident: str
 
 
 class BaseRequest(BaseModel):
@@ -25,22 +28,9 @@ class BaseRequest(BaseModel):
 
 class BaseResponse(BaseModel):
     """Base class for REST response data."""
-    job_uuid: str
-    status: AnsibleRunnerStatus
+    runner_ident: str
 
 
 class CreateVmRequest(BaseRequest):
     vm_name: str
     vm_template: VmTemplateType
-
-
-class CreateVmResponse(BaseResponse):
-    ip_addrs: List[str]
-    request: CreateVmRequest
-
-
-class ConfigBackupRequest(BaseRequest):
-    pass
-
-class ConfigBackupResponse(BaseResponse):
-    pass

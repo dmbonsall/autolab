@@ -1,45 +1,53 @@
 from typing import List
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy.orm import Session
 
 from . import database, crud
-from .ansible import ConfigBackupExecutor, CreateVMExecutor
-from .config import get_ansible_configuration
-from .schema import AnsibleJob, CreateVmRequest, CreateVmResponse
+from .ansible import PlaybookConfig, PlaybookExecutorFactory, get_ip_addrs
+from .schema import AnsibleJob, BaseResponse, CreateVmRequest
 
 database.Base.metadata.create_all(bind=database.engine)
 
-# Dependency
-def get_db():
-    db = database.SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# ===== create a register the playbook configs =====
+create_vm_config = PlaybookConfig(private_data_dir="../../ansible-projects/pve-one-touch",
+                                  playbook="create-vm.yml",
+                                  quiet=False,
+                                  finished_callback=get_ip_addrs)
 
-create_vm_executor = CreateVMExecutor(get_ansible_configuration())
-config_backup_executor = ConfigBackupExecutor(get_ansible_configuration())
+config_backup_config = PlaybookConfig(private_data_dir="../../ansible-projects/config-backup",
+                                      playbook="config-backup.yml",
+                                      quiet=False)
+
+executor_factory = PlaybookExecutorFactory()
+executor_factory.register("create-vm", create_vm_config)
+executor_factory.register("config-backup", config_backup_config)
+
 
 app = FastAPI()
 app_api = FastAPI()
 
 @app_api.post("/create-vm")
-async def create_vm(request: CreateVmRequest, db: Session = Depends(get_db)) -> CreateVmResponse:
-    return await create_vm_executor.execute(db, request)
+async def create_vm(request: CreateVmRequest) -> BaseResponse:
+    extravars = {"vm_name": request.vm_name, "template_name": request.vm_template.value}
+    executor = executor_factory.build_executor("create-vm")
+    executor.start_playbook(extravars)
+    return BaseResponse(runner_ident=executor.uuid)
+
 
 @app_api.post("/config-backup")
-async def backup_network_configs(db: Session = Depends(get_db)):
-    return await config_backup_executor.execute(db)
+async def backup_network_configs() -> BaseResponse:
+    executor = executor_factory.build_executor("config-backup")
+    executor.start_playbook()
+    return BaseResponse(runner_ident=executor.uuid)
 
 @app_api.get("/jobs", response_model=List[AnsibleJob])
-def get_jobs(db: Session = Depends(get_db)):
-    return crud.get_ansible_jobs(db)
+def get_jobs():
+    return crud.get_ansible_jobs()
 
 @app_api.get("/jobs/{job_uuid}", response_model=AnsibleJob)
-def get_job_by_uuid(job_uuid: str, db: Session = Depends(get_db)):
-    job = crud.get_ansible_job(db, job_uuid)
+def get_job_by_uuid(job_uuid: str):
+    job = crud.get_ansible_job(job_uuid)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
