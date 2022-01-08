@@ -83,7 +83,7 @@ class PlaybookExecutor:
             await asyncio.sleep(1)
 
 
-    def status_handler(self, status: StatusHandlerStatus, _: Optional[Any] = None):
+    def status_handler(self, status: StatusHandlerStatus, runner_config: Optional[Any] = None):
         """Callback to handle changes to status."""
         # NOTE: _ is the runner config, it is not needed since we can access via self.runner.config
         status = StatusHandlerStatus(**status)

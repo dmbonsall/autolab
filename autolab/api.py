@@ -27,19 +27,19 @@ executor_factory.register("config-backup", config_backup_config)
 app = FastAPI()
 app_api = FastAPI()
 
-@app_api.post("/create-vm")
+@app_api.post("/create-vm", response_model=BaseResponse)
 async def create_vm(request: CreateVmRequest) -> BaseResponse:
     extravars = {"vm_name": request.vm_name, "template_name": request.vm_template.value}
     executor = executor_factory.build_executor("create-vm")
     executor.start_playbook(extravars)
-    return BaseResponse(runner_ident=executor.uuid)
+    return BaseResponse(job_uuid=executor.uuid)
 
 
-@app_api.post("/config-backup")
+@app_api.post("/config-backup", response_model=BaseResponse)
 async def backup_network_configs() -> BaseResponse:
     executor = executor_factory.build_executor("config-backup")
     executor.start_playbook()
-    return BaseResponse(runner_ident=executor.uuid)
+    return BaseResponse(job_uuid=executor.uuid)
 
 @app_api.get("/jobs", response_model=List[AnsibleJob])
 def get_jobs():

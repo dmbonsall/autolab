@@ -23,7 +23,7 @@ def get_ansible_job(job_uuid: str, db: Session = None):
 
 @autowire("db", get_db)
 def get_ansible_jobs(skip: int = 0, limit: int = 100, db: Session = None):
-    return db.query(AnsibleJob).offset(skip).limit(limit).all()
+    return db.query(AnsibleJob).order_by(AnsibleJob.start_time.desc()).offset(skip).limit(limit).all()
 
 
 @autowire("db", get_db)

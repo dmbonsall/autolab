@@ -28,7 +28,7 @@ class BaseRequest(BaseModel):
 
 class BaseResponse(BaseModel):
     """Base class for REST response data."""
-    runner_ident: str
+    job_uuid: str
 
 
 class CreateVmRequest(BaseRequest):
