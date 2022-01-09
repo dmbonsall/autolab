@@ -5,6 +5,7 @@ from sqlalchemy import Column, DateTime, Enum, Integer, JSON, String
 from .database import Base
 
 class AnsibleRunnerStatus(enum.Enum):
+    CREATED = "created"
     STARTING = "starting"
     RUNNING = "running"
     SUCCESSFUL = "successful"
@@ -23,6 +24,8 @@ class AnsibleJob(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     job_uuid = Column(String, unique=True)
+    job_name = Column(String)
+    initiator = Column(String)
     status = Column(Enum(AnsibleRunnerStatus), nullable=True)
     start_time = Column(DateTime)
     end_time = Column(DateTime, nullable=True)

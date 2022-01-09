@@ -1,15 +1,14 @@
-import datetime
-
 from sqlalchemy.orm import Session
 
 from .autowire import autowire
-from .data_model import AnsibleJob
+from .data_model import AnsibleJob, AnsibleRunnerStatus
 from .database import get_db
 
 
 @autowire("db", get_db)
-def create_ansible_job(job_uuid: str, start_time: datetime.datetime, db: Session = None):
-    ansible_job = AnsibleJob(job_uuid=job_uuid, start_time=start_time)
+def create_ansible_job(job_uuid: str, job_name: str, initiator: str, db: Session = None):
+    ansible_job = AnsibleJob(job_uuid=job_uuid, job_name=job_name, initiator=initiator,
+                             status=AnsibleRunnerStatus.CREATED)
     db.add(ansible_job)
     db.commit()
     db.refresh(ansible_job)
@@ -27,10 +26,13 @@ def get_ansible_jobs(skip: int = 0, limit: int = 100, db: Session = None):
 
 
 @autowire("db", get_db)
-def update_job(job_uuid: str, db: Session = None, **kwargs):
+def update_ansible_job(job_uuid: str, db: Session = None, **kwargs):
     update_dict = {}
     if "status" in kwargs:
         update_dict[AnsibleJob.status] = kwargs["status"]
+
+    if "start_time" in kwargs:
+        update_dict[AnsibleJob.start_time] = kwargs["start_time"]
 
     if "end_time" in kwargs:
         update_dict[AnsibleJob.end_time] = kwargs["end_time"]

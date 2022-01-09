@@ -1,10 +1,12 @@
+from concurrent.futures import ThreadPoolExecutor
 from typing import List
+import uuid
 
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 
 from . import database, crud
-from .ansible import PlaybookConfig, PlaybookExecutorFactory, get_ip_addrs
+from .ansible import PlaybookConfig, AnsibleJobExecutorService, get_ip_addrs, status_handler
 from .schema import AnsibleJob, BaseResponse, CreateVmRequest
 
 database.Base.metadata.create_all(bind=database.engine)
@@ -19,9 +21,9 @@ config_backup_config = PlaybookConfig(private_data_dir="../../ansible-projects/c
                                       playbook="config-backup.yml",
                                       quiet=False)
 
-executor_factory = PlaybookExecutorFactory()
-executor_factory.register("create-vm", create_vm_config)
-executor_factory.register("config-backup", config_backup_config)
+
+executor = ThreadPoolExecutor(max_workers=1)
+executor_service = AnsibleJobExecutorService(executor, status_handler)
 
 
 app = FastAPI()
@@ -30,16 +32,18 @@ app_api = FastAPI()
 @app_api.post("/create-vm", response_model=BaseResponse)
 async def create_vm(request: CreateVmRequest) -> BaseResponse:
     extravars = {"vm_name": request.vm_name, "template_name": request.vm_template.value}
-    executor = executor_factory.build_executor("create-vm")
-    executor.start_playbook(extravars)
-    return BaseResponse(job_uuid=executor.uuid)
+    ident = str(uuid.uuid1())
+    crud.create_ansible_job(ident, "create-vm", "REST")
+    executor_service.submit_job(ident, create_vm_config, extravars)
+    return BaseResponse(job_uuid=ident)
 
 
 @app_api.post("/config-backup", response_model=BaseResponse)
 async def backup_network_configs() -> BaseResponse:
-    executor = executor_factory.build_executor("config-backup")
-    executor.start_playbook()
-    return BaseResponse(job_uuid=executor.uuid)
+    ident = str(uuid.uuid1())
+    crud.create_ansible_job(ident, "config-backup", "REST")
+    executor_service.submit_job(ident, config_backup_config)
+    return BaseResponse(job_uuid=ident)
 
 @app_api.get("/jobs", response_model=List[AnsibleJob])
 def get_jobs():

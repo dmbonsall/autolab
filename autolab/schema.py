@@ -9,7 +9,7 @@ from .data_model import AnsibleRunnerStatus, VmTemplateType
 class AnsibleJob(BaseModel):
     job_uuid: str
     status: AnsibleRunnerStatus
-    start_time: datetime.datetime
+    start_time: Optional[datetime.datetime]
     end_time: Optional[datetime.datetime] = None
     result: Optional[Any] = None
 

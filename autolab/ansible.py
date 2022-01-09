@@ -1,10 +1,9 @@
-import asyncio
+from concurrent.futures import Executor, Future
 import datetime
-from threading import Thread
 from typing import Any, Callable, Dict, Optional
-import uuid
 
 import ansible_runner
+import ansible_runner.interface
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
 from . import crud
@@ -41,7 +40,7 @@ def get_ip_addrs(runner: ansible_runner.Runner):
 
     # ===== Grab the ip addresses and return the response =====
     ip_addrs = ip_print_events[0]["event_data"]["res"]["msg"]
-    crud.update_job(runner.config.ident, result=ip_addrs)
+    crud.update_ansible_job(runner.config.ident, result=ip_addrs)
 
 class PlaybookConfig(BaseModel):
     private_data_dir: str
@@ -53,57 +52,42 @@ class PlaybookConfig(BaseModel):
         allow_mutation = False
 
 
-class PlaybookExecutor:
-    def __init__(self, config: PlaybookConfig):
-        self._uuid: str = str(uuid.uuid1())
-        self._config: PlaybookConfig = config
-        self._start_time: Optional[datetime.datetime] = None
-        self._end_time: Optional[datetime.datetime] = None
-        self._runner: Optional[ansible_runner.Runner] = None
-        self._runner_thread: Optional[Thread] = None
+def status_handler(status: StatusHandlerStatus, runner_config: ansible_runner.RunnerConfig):
+    """Callback to handle changes to status."""
+    status = StatusHandlerStatus(**status)
+    cur_time = datetime.datetime.now()
+    if status.status == AnsibleRunnerStatus.STARTING:
+        crud.update_ansible_job(runner_config.ident, start_time=cur_time, status=status.status)
+    elif status.status == AnsibleRunnerStatus.RUNNING:
+        crud.update_ansible_job(runner_config.ident, status=status.status)
+    else:
+        # We have reached a terminal state
+        crud.update_ansible_job(runner_config.ident, status=status.status, end_time=cur_time)
 
-    config = property(lambda self: self._config)
-    uuid = property(lambda self: self._uuid)
 
-    def start_playbook(self, extravars: Optional[Dict[str, str]] = None):
+class AnsibleJobExecutorService:
+    def __init__(self,
+                 executor: Executor,
+                 status_handler: Callable[[StatusHandlerStatus, ansible_runner.interface.RunnerConfig], None]):
+        self._executor: Executor = executor
+        self._status_handler = status_handler
+        self._future_map = {}
+
+    def submit_job(self, ident: str, config: PlaybookConfig, extravars: Optional[dict] = None):
         if extravars is None:
             extravars = {}
 
-        self._start_time = datetime.datetime.now()
-        thread, runner = ansible_runner.run_async(ident=self._uuid,
-                                                  status_handler=self.status_handler,
-                                                  extravars=extravars,
-                                                  **self.config.dict())
-        self._runner_thread = thread
-        self._runner = runner
+        future = self._executor.submit(ansible_runner.run,
+                                       status_handler = self._status_handler,
+                                       ident=ident,
+                                       extravars=extravars,
+                                       **config.dict())
 
-    async def await_termination(self):
-        """Block until a thread has terminated, but perform sleep operations with ``asyncio.sleep``."""
-        while self._runner_thread.is_alive():
-            await asyncio.sleep(1)
+        future.add_done_callback(self.done_callback)
+        self._future_map[ident] = future
+        logger.info("Submitted job: %s", ident)
 
-
-    def status_handler(self, status: StatusHandlerStatus, runner_config: Optional[Any] = None):
-        """Callback to handle changes to status."""
-        # NOTE: _ is the runner config, it is not needed since we can access via self.runner.config
-        status = StatusHandlerStatus(**status)
-        if status.status == AnsibleRunnerStatus.STARTING:
-            crud.create_ansible_job(self.uuid, self._start_time)
-            crud.update_job(self.uuid, status=status.status)
-        elif status.status == AnsibleRunnerStatus.RUNNING:
-            crud.update_job(self.uuid, status=status.status)
-        else:
-            # We have reached a terminal state
-            self._end_time = datetime.datetime.now()
-            crud.update_job(self.uuid, status=status.status, end_time=self._end_time)
-
-
-class PlaybookExecutorFactory:
-    def __init__(self):
-        self._config_map = {}
-
-    def register(self, key, config: PlaybookConfig):
-        self._config_map[key] = config
-
-    def build_executor(self, key):
-        return PlaybookExecutor(self._config_map[key])
+    def done_callback(self, future: Future):
+        runner: ansible_runner.Runner = future.result()
+        self._future_map.pop(runner.config.ident)
+        logger.info("Finished job: %s", runner.config.ident)
