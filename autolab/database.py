@@ -1,4 +1,8 @@
+from dataclasses import dataclass
+from typing import Callable, Optional
+
 from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, Session
 
 from .data_model import AnsibleJob, AnsibleRunnerStatus
@@ -8,34 +12,38 @@ class DatabaseNotInitializedError(RuntimeError):
     pass
 
 
-def null_sessionmaker() -> Session:
+def _null_sessionmaker() -> Session:
     raise DatabaseNotInitializedError()
 
 
-_SessionLocal = null_sessionmaker
-_engine = None
+@dataclass
+class _DatabaseState:
+    session_local: Callable = _null_sessionmaker
+    engine: Optional[Engine] = None
+
+
+_db_state = _DatabaseState()
 
 
 def initialize(db_url):
-    global _engine
-    global _SessionLocal
-    if _engine is None:
-        _engine = create_engine(
+    if _db_state.engine is None:
+        _db_state.engine = create_engine(
             db_url, connect_args={"check_same_thread": False}
         )
 
-        _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
+        _db_state.session_local = sessionmaker(autocommit=False, autoflush=False, bind=_db_state.engine)
     else:
         raise RuntimeWarning("Database already initialized.")
 
 def get_engine():
-    if _engine is None:
+    if _db_state.engine is None:
         raise DatabaseNotInitializedError()
 
-    return _engine
+    return _db_state.engine
+
 
 def create_ansible_job(job_uuid: str, job_name: str, initiator: str):
-    with _SessionLocal() as session:
+    with _db_state.session_local() as session:
         ansible_job = AnsibleJob(job_uuid=job_uuid, job_name=job_name, initiator=initiator,
                                  status=AnsibleRunnerStatus.CREATED)
         session.add(ansible_job)
@@ -45,12 +53,12 @@ def create_ansible_job(job_uuid: str, job_name: str, initiator: str):
 
 
 def get_ansible_job(job_uuid: str):
-    with _SessionLocal() as session:
+    with _db_state.session_local() as session:
         return session.query(AnsibleJob).filter(AnsibleJob.job_uuid == job_uuid).one()
 
 
 def get_ansible_jobs(skip: int = 0, limit: int = 100):
-    with _SessionLocal() as session:
+    with _db_state.session_local() as session:
         return session.query(AnsibleJob).order_by(AnsibleJob.start_time.desc()).offset(skip).limit(limit).all()
 
 
@@ -69,7 +77,7 @@ def update_ansible_job(job_uuid: str, **kwargs):
         update_dict[AnsibleJob.result] = kwargs["result"]
 
     if update_dict:
-        with _SessionLocal() as session:
+        with _db_state.session_local() as session:
             updated_rows = session.query(AnsibleJob) \
                             .filter(AnsibleJob.job_uuid == job_uuid) \
                             .update(update_dict)
@@ -84,7 +92,7 @@ def update_ansible_job(job_uuid: str, **kwargs):
 
 
 def delete_ansible_job(job_uuid:str):
-    with _SessionLocal() as session:
+    with _db_state.session_local() as session:
         updated_rows = session.query(AnsibleJob) \
                               .filter(AnsibleJob.job_uuid == job_uuid) \
                               .delete()
