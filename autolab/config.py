@@ -1,7 +1,5 @@
 from functools import lru_cache
 import json
-import logging
-import logging.config
 import os
 from pathlib import Path
 from typing import Any, Dict
@@ -73,37 +71,3 @@ _playbook_configs = {
 
 def get_playbook_config(playbook_type: schema.PlaybookType):
     return _playbook_configs[playbook_type]
-
-
-# Copied from uvicorn
-TRACE_LOG_LEVEL: int = 5
-LOGGING_CONFIG: dict = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "default": {
-            "()": "uvicorn.logging.DefaultFormatter",
-            "fmt": "%(levelprefix)s %(module)s %(message)s",
-            "use_colors": None,
-        }
-    },
-    "handlers": {
-        "default": {
-            "formatter": "default",
-            "class": "logging.StreamHandler",
-            "stream": "ext://sys.stderr",
-        }
-    },
-    "loggers": {
-        "autolab": {"handlers": ["default"], "level": "DEBUG"},
-    }
-}
-
-
-logging.addLevelName(TRACE_LOG_LEVEL, "TRACE")
-logging.config.dictConfig(LOGGING_CONFIG)
-
-
-@lru_cache
-def get_logger():
-    return logging.getLogger("autolab")

@@ -1,4 +1,5 @@
 from concurrent.futures import Executor, Future
+import logging
 from typing import Optional
 
 import ansible_runner
@@ -8,7 +9,7 @@ from autolab import config
 from autolab.schema import PlaybookType, StatusHandlerInterface
 
 
-logger = config.get_logger()
+logger = logging.getLogger("autolab")
 
 
 class PlaybookExecutorService:
