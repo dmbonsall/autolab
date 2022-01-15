@@ -8,6 +8,7 @@ from typing import Any, Dict
 
 from pydantic import BaseSettings
 
+from autolab import schema, utils
 
 _DEFAULT_CONFIG_PATH = "/etc/autolab.json"
 
@@ -49,9 +50,29 @@ class ApplicationSettings(BaseSettings):
             )
 
 
-@lru_cache
+_settings = ApplicationSettings()
+
 def get_app_settings():
-    return ApplicationSettings()
+    return _settings
+
+
+_playbook_configs = {
+    schema.PlaybookType.CREATE_VM: schema.PlaybookConfig(
+        private_data_dir=_settings.create_vm_private_data_dir,
+        playbook="create-vm.yml",
+        quiet=_settings.ansible_quiet,
+        finished_callback=utils.get_ip_addrs,
+    ),
+
+    schema.PlaybookType.CONFIG_BACKUP: schema.PlaybookConfig(
+        private_data_dir=_settings.config_backup_private_data_dir,
+        playbook="config-backup.yml",
+        quiet=_settings.ansible_quiet,
+    )
+}
+
+def get_playbook_config(playbook_type: schema.PlaybookType):
+    return _playbook_configs[playbook_type]
 
 
 # Copied from uvicorn

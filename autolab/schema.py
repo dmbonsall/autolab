@@ -1,9 +1,39 @@
+import enum
 import datetime
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
+import ansible_runner
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
-from .data_model import AnsibleRunnerStatus, VmTemplateType
+
+class PlaybookType(enum.Enum):
+    CREATE_VM = "create-vm"
+    CONFIG_BACKUP = "config-backup"
+
+
+class PlaybookConfig(BaseModel):
+    private_data_dir: str
+    playbook: str
+    quiet: bool = True
+    finished_callback: Optional[Callable[[ansible_runner.Runner], None]] = None
+
+    class Config:
+        allow_mutation = False
+
+
+class AnsibleRunnerStatus(enum.Enum):
+    CREATED = "created"
+    STARTING = "starting"
+    RUNNING = "running"
+    SUCCESSFUL = "successful"
+    TIMEOUT = "timeout"
+    FAILED = "failed"
+    CANCELED = "canceled"
+
+
+class VmTemplateType(enum.Enum):
+    ALMA = "AlmaCloudInit"
+    UBUNTU = "UbuntuCloudInit"
 
 
 class AnsibleJob(BaseModel):
@@ -34,3 +64,5 @@ class BaseResponse(BaseModel):
 class CreateVmRequest(BaseRequest):
     vm_name: str
     vm_template: VmTemplateType
+
+StatusHandlerInterface = Callable[[StatusHandlerStatus, ansible_runner.interface.RunnerConfig], None]

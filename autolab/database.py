@@ -5,7 +5,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, Session
 
-from .data_model import AnsibleJob, AnsibleRunnerStatus
+from autolab.data_model import AnsibleJob
+from autolab.schema import AnsibleRunnerStatus
 
 
 class DatabaseNotInitializedError(RuntimeError):
