@@ -1,8 +1,9 @@
 import enum
 
 from sqlalchemy import Column, DateTime, Enum, Integer, JSON, String
+from sqlalchemy.orm import declarative_base
 
-from .database import Base
+Base = declarative_base()
 
 class AnsibleRunnerStatus(enum.Enum):
     CREATED = "created"

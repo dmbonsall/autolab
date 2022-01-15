@@ -6,7 +6,7 @@ import ansible_runner
 import ansible_runner.interface
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
-from . import crud
+from . import database
 from .schema import AnsibleRunnerStatus, StatusHandlerStatus
 from .config import get_logger
 
@@ -40,7 +40,7 @@ def get_ip_addrs(runner: ansible_runner.Runner):
 
     # ===== Grab the ip addresses and return the response =====
     ip_addrs = ip_print_events[0]["event_data"]["res"]["msg"]
-    crud.update_ansible_job(runner.config.ident, result=ip_addrs)
+    database.update_ansible_job(runner.config.ident, result=ip_addrs)
 
 class PlaybookConfig(BaseModel):
     private_data_dir: str
@@ -57,12 +57,12 @@ def status_handler(status: StatusHandlerStatus, runner_config: ansible_runner.Ru
     status = StatusHandlerStatus(**status)
     cur_time = datetime.datetime.now()
     if status.status == AnsibleRunnerStatus.STARTING:
-        crud.update_ansible_job(runner_config.ident, start_time=cur_time, status=status.status)
+        database.update_ansible_job(runner_config.ident, start_time=cur_time, status=status.status)
     elif status.status == AnsibleRunnerStatus.RUNNING:
-        crud.update_ansible_job(runner_config.ident, status=status.status)
+        database.update_ansible_job(runner_config.ident, status=status.status)
     else:
         # We have reached a terminal state
-        crud.update_ansible_job(runner_config.ident, status=status.status, end_time=cur_time)
+        database.update_ansible_job(runner_config.ident, status=status.status, end_time=cur_time)
 
 
 class AnsibleJobExecutorService:
