@@ -5,21 +5,27 @@ import uuid
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 
-from . import database, crud
+from . import database, crud, config
 from .ansible import PlaybookConfig, AnsibleJobExecutorService, get_ip_addrs, status_handler
 from .schema import AnsibleJob, BaseResponse, CreateVmRequest
 
 database.Base.metadata.create_all(bind=database.engine)
 
-# ===== create a register the playbook configs =====
-create_vm_config = PlaybookConfig(private_data_dir="../../ansible-projects/pve-one-touch",
-                                  playbook="create-vm.yml",
-                                  quiet=False,
-                                  finished_callback=get_ip_addrs)
+settings = config.get_app_settings()
 
-config_backup_config = PlaybookConfig(private_data_dir="../../ansible-projects/config-backup",
-                                      playbook="config-backup.yml",
-                                      quiet=False)
+# ===== create a register the playbook configs =====
+create_vm_config = PlaybookConfig(
+    private_data_dir=settings.create_vm_private_data_dir,
+    playbook="create-vm.yml",
+    quiet=settings.ansible_quiet,
+    finished_callback=get_ip_addrs,
+)
+
+config_backup_config = PlaybookConfig(
+    private_data_dir=settings.config_backup_private_data_dir,
+    playbook="config-backup.yml",
+    quiet=settings.ansible_quiet,
+)
 
 
 executor = ThreadPoolExecutor(max_workers=1)
