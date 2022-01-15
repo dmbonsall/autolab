@@ -28,7 +28,7 @@ config_backup_config = PlaybookConfig(
 )
 
 
-executor = ThreadPoolExecutor(max_workers=1)
+executor = ThreadPoolExecutor(max_workers=settings.max_executor_threads)
 executor_service = AnsibleJobExecutorService(executor, status_handler)
 
 

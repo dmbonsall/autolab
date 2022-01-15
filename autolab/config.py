@@ -24,6 +24,8 @@ def json_config_settings_source(settings: BaseSettings) -> Dict[str, Any]:
 
 
 class ApplicationSettings(BaseSettings):
+    db_url: str = "sqlite:///sql_app.db"
+    max_executor_threads: int = 1
     create_vm_private_data_dir: str = "./ansible/pve-one-touch"
     config_backup_private_data_dir: str = "./ansible/config-backup"
     ansible_quiet: bool = True
