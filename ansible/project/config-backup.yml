@@ -1,0 +1,13 @@
+# General Notes:
+---
+- name: Backup the config backup directory on the pfsense host to the local machine
+  hosts:
+    - unifi
+    - pfsense
+
+  tasks:
+  - name: Rsync the backup config directory
+    ansible.posix.synchronize:
+      mode: pull
+      src: '{{ backup_sync_src }}'
+      dest: '{{ backup_sync_dest }}/{{ inventory_hostname}}'

@@ -13,6 +13,7 @@ class PlaybookType(enum.Enum):
 
 class PlaybookConfig(BaseModel):
     private_data_dir: str
+    artifact_dir: str
     playbook: str
     quiet: bool = True
     finished_callback: Optional[Callable[[ansible_runner.Runner], None]] = None

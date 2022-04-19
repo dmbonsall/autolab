@@ -2,7 +2,7 @@ from functools import lru_cache
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from pydantic import BaseSettings
 
@@ -27,10 +27,11 @@ def json_config_settings_source(settings: BaseSettings) -> Dict[str, Any]:
 
 
 class ApplicationSettings(BaseSettings):
-    db_url: str = "sqlite:///autolab.db"
+    db_url: str = "sqlite:////var/lib/autolab/autolab.db"
     max_executor_threads: int = 1
-    create_vm_private_data_dir: str = "./ansible/pve-one-touch"
-    config_backup_private_data_dir: str = "./ansible/config-backup"
+    create_vm_private_data_dir: str = "/ansible"
+    config_backup_private_data_dir: str = "/ansible"
+    artifact_dir: Optional[str] = "/var/lib/autolab/artifacts"
     ansible_quiet: bool = True
 
     class Config:
@@ -61,6 +62,7 @@ def get_app_settings():
 _playbook_configs = {
     schema.PlaybookType.CREATE_VM: schema.PlaybookConfig(
         private_data_dir=_settings.create_vm_private_data_dir,
+        artifact_dir=_settings.artifact_dir,
         playbook="create-vm.yml",
         quiet=_settings.ansible_quiet,
         finished_callback=utils.get_ip_addrs,
@@ -68,6 +70,7 @@ _playbook_configs = {
 
     schema.PlaybookType.CONFIG_BACKUP: schema.PlaybookConfig(
         private_data_dir=_settings.config_backup_private_data_dir,
+        artifact_dir=_settings.artifact_dir,
         playbook="config-backup.yml",
         quiet=_settings.ansible_quiet,
     )

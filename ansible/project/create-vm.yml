@@ -1,0 +1,106 @@
+# General Notes:
+# - Snippets destination below may have to be editted depending on where you want to put it.
+#
+# - The api_user is the SSH username appended with '@pam'. If you are using alternate authentication,
+#   you may have to alter this.
+#
+# - The proxmox_kvm module steps are delegated to localhost since they just use the PVE REST API
+#   (so no need to SSH).
+#
+# - This playbook assumes that your template VM is configured to use cloud-init and that you have
+#   already added a cloud-init drive to the template VM. Due to limitations with the proxmox_kvm
+#   module, you cannot add an IDE drive to a VM via this module.
+---
+- name: Create a new VM based on an image template and a cloud-init configuration.
+  hosts: pve_servers
+
+  tasks:
+  # - name: test a connection
+  #   command: ls /tmp
+  #   register: out
+
+  - name: Copy the template to the pve_host
+    template:
+      src: user-data.j2
+      dest: /snippets/snippets/user-data
+
+  - name: Create the VM
+    community.general.proxmox_kvm:
+      api_host: '{{ ansible_host }}'
+      api_user: '{{ api_user }}@pam'
+      api_token_id: '{{ api_token_id }}'
+      api_token_secret: '{{ api_token_secret }}'
+      # api_password: '{{ api_password }}'
+      node: '{{ inventory_hostname }}'
+      timeout: 500
+      clone: '{{ template_name }}'
+      name: '{{ vm_name }}'
+      full: yes
+      storage: local-lvm
+    delegate_to: localhost
+    register: clone_output
+
+#  - name: print the clone_output
+#    debug:
+#       var: clone_output
+
+  - name: Add the cloudinit and boot parameters
+    community.general.proxmox_kvm:
+      api_host: '{{ ansible_host }}'
+      api_user: '{{ api_user }}@pam'
+      api_token_id: '{{ api_token_id }}'
+      api_token_secret: '{{ api_token_secret }}'
+      # api_password: '{{ api_password }}'
+      node: '{{ inventory_hostname }}'
+      timeout: 500
+      name: '{{ vm_name }}'
+      boot: cnd
+      bootdisk: scsi0
+      cicustom: 'user=snippets:snippets/user-data'
+      update: yes
+    delegate_to: localhost
+    register: add_output
+
+# - name: print the add_output
+#   debug:
+#       var: add_output
+
+  - name: Start the VM
+    community.general.proxmox_kvm:
+      api_host: '{{ ansible_host }}'
+      api_user: '{{ api_user }}@pam'
+      api_token_id: '{{ api_token_id }}'
+      api_token_secret: '{{ api_token_secret }}'
+      # api_password: '{{ api_password }}'
+      node: '{{ inventory_hostname }}'
+      name: '{{ vm_name }}'
+      state: started
+    delegate_to: localhost
+    register: start_output
+
+# - name: print the output
+#   debug:
+#       var: start_output
+
+  - name: Wait 60 seconds for the guest VM to come up
+    wait_for:
+      timeout: 60
+    delegate_to: localhost
+
+  - name: Get the IP address of the VM
+    shell: 'qm agent {{ start_output.vmid }} network-get-interfaces'
+    register: agent_output
+
+#  - name: debug
+#    debug:
+#      msg:  '{{ agent_output.stdout }}'
+
+  # NOTE: The query string is a format called "jmespath" which is a handy spec for
+  #       writing JSON queries
+  - name: Print the IPv4 addresses on all interfaces
+    debug:
+      msg: '{{ agent_output.stdout | from_json | json_query(query_string) }}'
+    vars:
+      query_string: "@[*].\"ip-addresses\"[?\"ip-address-type\" == 'ipv4'].\"ip-address\"[]"
+
+# vim: ts=2 sw=2 ai:
