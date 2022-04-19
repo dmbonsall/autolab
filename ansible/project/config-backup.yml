@@ -11,3 +11,4 @@
       mode: pull
       src: '{{ backup_sync_src }}'
       dest: '{{ backup_sync_dest }}/{{ inventory_hostname}}'
+      archive: no

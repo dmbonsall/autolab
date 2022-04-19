@@ -31,6 +31,8 @@ ENV PYTHONPATH="/autolab" \
     AUTOLAB_HOST="0.0.0.0" \
     AUTOLAB_PORT="8123"
 
+EXPOSE 8123/tcp
+
 CMD uvicorn --host ${AUTOLAB_HOST} \
             --port ${AUTOLAB_PORT} \
             --log-config /autolab/etc/logging.json \
