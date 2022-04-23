@@ -15,3 +15,13 @@ hostname: {{ vm_name|lower }}
 fqdn: {{ vm_name|lower }}
 
 timezone: "{{ vm_tz }}"
+
+packages:
+  - qemu-guest-agent
+  - ansible
+package_update: true
+package_upgrade: true
+
+power_state:
+  delay: now
+  mode: poweroff
