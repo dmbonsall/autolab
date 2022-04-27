@@ -4,6 +4,8 @@
   hosts:
     - unifi
     - pfsense
+  vars:
+    backup_sync_dest: /var/lib/autolab/backups
 
   tasks:
   - name: Rsync the backup config directory
