@@ -1,6 +1,6 @@
 import enum
 import datetime
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import ansible_runner
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
@@ -61,9 +61,10 @@ class BaseResponse(BaseModel):
     """Base class for REST response data."""
     job_uuid: str
 
+class StartPlaybookRequest(BaseModel):
+    """Request model for starting a playbook."""
+    extravars: Optional[Dict[str, Any]] = None
+    tags: Optional[List[str]] = None
 
-class CreateVmRequest(BaseRequest):
-    vm_name: str
-    vm_template: VmTemplateType
 
 StatusHandlerInterface = Callable[[StatusHandlerStatus, ansible_runner.interface.RunnerConfig], None]

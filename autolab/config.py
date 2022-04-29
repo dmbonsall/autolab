@@ -6,7 +6,6 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseSettings
 
-from autolab import schema, utils
 
 _DEFAULT_CONFIG_PATH = "autolab.json"
 
@@ -29,8 +28,8 @@ def json_config_settings_source(settings: BaseSettings) -> Dict[str, Any]:
 class ApplicationSettings(BaseSettings):
     db_url: str = "sqlite:////var/lib/autolab/autolab.db"
     max_executor_threads: int = 1
-    create_vm_private_data_dir: str = "/ansible"
-    config_backup_private_data_dir: str = "/ansible"
+    private_data_dir: str = "/ansible"
+    project_dir: Optional[str] = None
     artifact_dir: Optional[str] = "/var/lib/autolab/artifacts"
     ansible_quiet: bool = True
 
@@ -55,26 +54,5 @@ class ApplicationSettings(BaseSettings):
 
 _settings = ApplicationSettings()
 
-def get_app_settings():
+def get_app_settings() -> ApplicationSettings:
     return _settings
-
-
-_playbook_configs = {
-    schema.PlaybookType.CREATE_VM: schema.PlaybookConfig(
-        private_data_dir=_settings.create_vm_private_data_dir,
-        artifact_dir=_settings.artifact_dir,
-        playbook="create-vm.yml",
-        quiet=_settings.ansible_quiet,
-        finished_callback=utils.get_ip_addrs,
-    ),
-
-    schema.PlaybookType.CONFIG_BACKUP: schema.PlaybookConfig(
-        private_data_dir=_settings.config_backup_private_data_dir,
-        artifact_dir=_settings.artifact_dir,
-        playbook="config-backup.yml",
-        quiet=_settings.ansible_quiet,
-    )
-}
-
-def get_playbook_config(playbook_type: schema.PlaybookType):
-    return _playbook_configs[playbook_type]

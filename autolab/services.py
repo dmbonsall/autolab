@@ -1,12 +1,13 @@
 from concurrent.futures import Executor, Future
 import logging
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 import ansible_runner
 import ansible_runner.interface
 
+
 from autolab import config
-from autolab.schema import PlaybookType, StatusHandlerInterface
+from autolab.schema import StatusHandlerInterface
 
 
 logger = logging.getLogger("autolab")
@@ -18,17 +19,25 @@ class PlaybookExecutorService:
         self._status_handler = status_handler
         self._future_map = {}
 
-    def submit_job(self, ident: str, playbook_type: PlaybookType, extravars: Optional[dict] = None):
+    def submit_job(self, ident: str, playbook: str, extravars: Optional[Dict[str, Any]] = None,
+                   tags: Optional[List[str]] = None):
         if extravars is None:
             extravars = {}
 
-        playbook_config = config.get_playbook_config(playbook_type)
+        cmdline = f"--tags {','.join(tags)}" if tags is not None else ""
 
+
+        settings = config.get_app_settings()
         future = self._executor.submit(ansible_runner.run,
                                        status_handler = self._status_handler,
+                                       quiet=settings.ansible_quiet,
+                                       project_dir=settings.project_dir,
+                                       artifact_dir=settings.artifact_dir,
+                                       private_data_dir=settings.private_data_dir,
                                        ident=ident,
+                                       playbook=playbook,
                                        extravars=extravars,
-                                       **playbook_config.dict())
+                                       cmdline=cmdline,)
 
         future.add_done_callback(self.done_callback)
         self._future_map[ident] = future

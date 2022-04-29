@@ -1,4 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
+import os
+import os.path
 from typing import List
 import uuid
 
@@ -6,7 +8,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 
 from autolab import database, config, data_model, services, utils
-from autolab.schema import AnsibleJob, BaseResponse, CreateVmRequest, PlaybookType
+from autolab.schema import AnsibleJob, BaseResponse, StartPlaybookRequest
 
 
 # ===== Get the settings and initialize everything =====
@@ -22,20 +24,24 @@ executor_service = services.PlaybookExecutorService(executor, utils.status_handl
 app = FastAPI()
 app_api = FastAPI()
 
-@app_api.post("/create-vm", response_model=BaseResponse)
-async def create_vm(request: CreateVmRequest) -> BaseResponse:
-    extravars = {"vm_name": request.vm_name, "template_name": request.vm_template.value}
-    ident = str(uuid.uuid1())
-    database.create_ansible_job(ident, "create-vm", "REST")
-    executor_service.submit_job(ident, PlaybookType.CREATE_VM, extravars)
-    return BaseResponse(job_uuid=ident)
+
+@app_api.get("/playbooks")
+def get_playbooks():
+    if settings.project_dir is None:
+        project_dir = os.path.join(settings.private_data_dir, "project")
+    else:
+        project_dir = settings.project_dir
+
+    filenames = os.listdir(project_dir)
+    playbooks = [name for name in filenames if os.path.splitext(name)[1] in (".yml", ".yaml")]
+    return playbooks
 
 
-@app_api.post("/config-backup", response_model=BaseResponse)
-async def backup_network_configs() -> BaseResponse:
+@app_api.post("/playbooks/{playbook}")
+def start_playbook(playbook, request_data: StartPlaybookRequest):
     ident = str(uuid.uuid1())
-    database.create_ansible_job(ident, "config-backup", "REST")
-    executor_service.submit_job(ident, PlaybookType.CONFIG_BACKUP)
+    database.create_ansible_job(ident, playbook, "REST")
+    executor_service.submit_job(ident, playbook, request_data.extravars, request_data.tags)
     return BaseResponse(job_uuid=ident)
 
 @app_api.get("/jobs", response_model=List[AnsibleJob])
