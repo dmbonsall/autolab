@@ -6,7 +6,7 @@ RUN apk add --no-cache python3 python3-dev build-base libffi-dev openssh-client 
     python3 -m pip install -U pip setuptools wheel && \
 
     # Create directories
-    mkdir -p /autolab/etc /autolab/autolab /autolab/static && \
+    mkdir -p /autolab/etc /autolab/autolab && \
     mkdir -p /ansible/project /ansible/inventory /ansible/env && \
     mkdir -p /var/lib/autolab/backups && \
 
@@ -21,7 +21,6 @@ RUN python3 -m pip install -r /autolab/etc/requirements.txt && \
 # Copy all the other files into the image
 COPY ansible/project /ansible/project
 COPY autolab/ /autolab/autolab
-COPY static/ /autolab/static
 COPY logging.json /autolab/etc/logging.json
 
 # Setup the execution environment

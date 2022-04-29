@@ -5,7 +5,6 @@ from typing import List
 import uuid
 
 from fastapi import FastAPI, HTTPException
-from fastapi.staticfiles import StaticFiles
 
 from autolab import database, config, data_model, services, utils
 from autolab.schema import AnsibleJob, BaseResponse, StartPlaybookRequest
@@ -56,5 +55,4 @@ def get_job_by_uuid(job_uuid: str):
     return job
 
 
-app.mount("/ui", StaticFiles(directory="static", html=True), name="ui")
 app.mount("/api", app_api)
