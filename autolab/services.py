@@ -26,7 +26,6 @@ class PlaybookExecutorService:
 
         cmdline = f"--tags {','.join(tags)}" if tags is not None else ""
 
-
         settings = config.get_app_settings()
         future = self._executor.submit(ansible_runner.run,
                                        status_handler = self._status_handler,

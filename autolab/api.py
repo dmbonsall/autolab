@@ -7,7 +7,7 @@ import uuid
 from fastapi import FastAPI, HTTPException
 
 from autolab import database, config, data_model, services, utils
-from autolab.schema import AnsibleJob, BaseResponse, StartPlaybookRequest
+from autolab.schema import AnsibleJob, StartPlaybookRequest
 
 
 # ===== Get the settings and initialize everything =====
@@ -24,7 +24,12 @@ app = FastAPI()
 app_api = FastAPI()
 
 
-@app_api.get("/playbooks")
+@app_api.get("/")
+def get_root():
+    return "OK"
+
+
+@app_api.get("/playbooks", response_model=List[str])
 def get_playbooks():
     if settings.project_dir is None:
         project_dir = os.path.join(settings.private_data_dir, "project")
@@ -36,16 +41,18 @@ def get_playbooks():
     return playbooks
 
 
-@app_api.post("/playbooks/{playbook}")
-def start_playbook(playbook, request_data: StartPlaybookRequest):
+@app_api.post("/playbooks/{playbook}", response_model=AnsibleJob)
+def start_playbook(playbook: str, request_data: StartPlaybookRequest):
     ident = str(uuid.uuid1())
     database.create_ansible_job(ident, playbook, "REST")
     executor_service.submit_job(ident, playbook, request_data.extravars, request_data.tags)
-    return BaseResponse(job_uuid=ident)
+    return database.get_ansible_job(ident)
+
 
 @app_api.get("/jobs", response_model=List[AnsibleJob])
 def get_jobs():
     return database.get_ansible_jobs()
+
 
 @app_api.get("/jobs/{job_uuid}", response_model=AnsibleJob)
 def get_job_by_uuid(job_uuid: str):
