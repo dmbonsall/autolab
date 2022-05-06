@@ -24,7 +24,7 @@ class PlaybookExecutorService:
         if extravars is None:
             extravars = {}
 
-        cmdline = f"--tags {','.join(tags)}" if tags is not None else ""
+        cmdline = f"--tags {','.join(tags)}" if tags else ""
 
         settings = config.get_app_settings()
         future = self._executor.submit(ansible_runner.run,

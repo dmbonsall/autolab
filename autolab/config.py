@@ -26,11 +26,11 @@ def json_config_settings_source(settings: BaseSettings) -> Dict[str, Any]:
 
 
 class ApplicationSettings(BaseSettings):
-    db_url: str = "sqlite:////var/lib/autolab/autolab.db"
+    db_url: str = "sqlite:////ansible/autolab.db"
     max_executor_threads: int = 1
     private_data_dir: str = "/ansible"
     project_dir: Optional[str] = None
-    artifact_dir: Optional[str] = "/var/lib/autolab/artifacts"
+    artifact_dir: Optional[str] = None
     ansible_quiet: bool = True
 
     class Config:

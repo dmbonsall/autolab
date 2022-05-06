@@ -7,8 +7,7 @@ RUN apk add --no-cache python3 python3-dev build-base libffi-dev openssh-client 
 
     # Create directories
     mkdir -p /autolab/etc /autolab/autolab && \
-    mkdir -p /ansible/project /ansible/inventory /ansible/env && \
-    mkdir -p /var/lib/autolab/backups && \
+    mkdir -p /ansible/project /ansible/inventory /ansible/env /ansible/artifacts && \
 
     # Enable ssh to use rsa keys
     echo "PubkeyAcceptedKeyTypes +ssh-rsa" >> /etc/ssh/ssh_config
@@ -19,7 +18,6 @@ RUN python3 -m pip install -r /autolab/etc/requirements.txt && \
     apk del --no-cache build-base libffi-dev
 
 # Copy all the other files into the image
-COPY ansible/project /ansible/project
 COPY autolab/ /autolab/autolab
 COPY logging.json /autolab/etc/logging.json
 
