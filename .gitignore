@@ -1,6 +1,2 @@
 .vscode/
 *.code-workspace
-ansible/env/
-ansible/inventory/
-**/__pycache__
-*.pyc
