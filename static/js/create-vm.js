@@ -31,7 +31,7 @@ function populateTable(data) {
 
 function refreshJobsData() {
     $.ajax({
-        url: "/api/jobs",
+        url: "/api/v1/jobs",
         contentType: "application/json",
         type: "GET",
         success: function (response) {
@@ -65,7 +65,7 @@ $(function () {
 
         // ===== Place the REST request =====
         $.ajax({
-            url: "/api/create-vm",
+            url: "/api/v1/create-vm",
             contentType: "application/json",
             data: JSON.stringify(data),
             dataType: "json",
@@ -88,7 +88,7 @@ $(function () {
 
         // ===== Place the REST request =====
         $.ajax({
-            url: "/api/config-backup",
+            url: "/api/v1/config-backup",
             type: "POST",
             success: function (response) {
                 console.log(response)
