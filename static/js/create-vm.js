@@ -55,9 +55,12 @@ function appendToConsoleText(msg) {
 $(function () {
     $("#createVmButton").click(function () {
         // ===== Grab all the data from the UI =====
+        var extravars = {}
+        extravars["vm_name"] = $("#vmName").val()
+        extravars["vm_template"] = $("#vmTemplate").val()
+
         var data = {}
-        data["vm_name"] = $("#vmName").val()
-        data["vm_template"] = $("#vmTemplate").val()
+        data["extravars"] = extravars
 
         // ===== Set the status text, then disable the create button =====
         console.log(data)
@@ -65,7 +68,7 @@ $(function () {
 
         // ===== Place the REST request =====
         $.ajax({
-            url: "/api/v1/create-vm",
+            url: "/api/v1/playbooks/create-vm.yml",
             contentType: "application/json",
             data: JSON.stringify(data),
             dataType: "json",
@@ -85,10 +88,14 @@ $(function () {
     $("#configBackupButton").click(function () {
         // ===== Set the status text, then disable the backup button =====
         $("#configBackupButton").attr("disabled", true)
+        var data = {}
 
         // ===== Place the REST request =====
         $.ajax({
-            url: "/api/v1/config-backup",
+            url: "/api/v1/playbooks/config-backup.yml",
+            contentType: "application/json",
+            data: JSON.stringify(data),
+            dataType: "json",
             type: "POST",
             success: function (response) {
                 console.log(response)
